@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
-#include "utils/send_data.h"
-#include "utils/wifi_connect.h"
+// #include "utils/send_data.h"
+// #include "utils/wifi_connect.h"
+#include "utils/joystick.h"
 
 #define BUTTON_A 5          // Definição do pino para o botão A.
 #define BUTTON_B 6          // Definição do pino para o botão B.
@@ -13,6 +14,7 @@ volatile bool button_b_pressed = false; // Variável para armazenar o estado do 
 
 void setup() {
     stdio_init_all(); // Inicializa a comunicação serial
+    joystick_init(); // Inicializa o joystick
     // init_wifi(); // Inicializa o Wi-Fi e conecta na rede
 
     gpio_init(LED_PIN_BLUE);                // Inicializa os pinos do LED azul.
@@ -56,12 +58,16 @@ int main() {
     sleep_ms(3000); // Espera 3 segundo para estabilizar o sistema
     printf("Sistema iniciado\n");
 
+    JoystickState current_state, last_state = {0};
+
     int data = 0;
 
     while (true) {
         // printf("Enviando dados para o servidor...\n");
         // create_request(data++); // Envia para o servidor (0, 1, 2, 3...)
         // sleep_ms(3000); // Espera 3 segundos antes do próximo envio
+
+        current_state = joystick_read(); // Lê o estado atual do joystick
 
         if (button_a_pressed) {
             gpio_put(LED_PIN_GREEN, 1);
@@ -73,6 +79,32 @@ int main() {
             gpio_put(LED_PIN_BLUE, 1);
         } else {
             gpio_put(LED_PIN_BLUE, 0);
+        }
+
+        // Verifica se houve mudança nos eixos
+        if (current_state.x != last_state.x || current_state.y != last_state.y) {
+            // Log da posição em coordenadas cardinais
+            printf("Posição: X=%+3d, Y=%+3d", current_state.x, current_state.y);
+            
+            // Descrição cardinal simplificada
+            if (current_state.x == 0 && current_state.y == 0) {
+                printf(" (Centro)");
+            } else {
+                if (current_state.y > 0) printf(" Leste");
+                if (current_state.y < 0) printf(" Oeste");
+                if (current_state.x > 0) printf(" Norte");
+                if (current_state.x < 0) printf(" Sul");
+            }
+            printf("\n");
+            
+            last_state.x = current_state.x;
+            last_state.y = current_state.y;
+        }
+        
+        // Verifica botão
+        if (current_state.button_pressed) {
+            printf("Botão pressionado!\n");
+            sleep_ms(200); // Debounce
         }
 
         tight_loop_contents();
