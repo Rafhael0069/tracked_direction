@@ -39,10 +39,14 @@ add_executable(tracked_direction
             tracked_direction.c 
             utils/send_data.c 
             utils/wifi_connect.c
-            utils/joystick.c)
+            utils/joystick.c
+            utils/matrix_control.c)
 
 pico_set_program_name(tracked_direction "tracked_direction")
 pico_set_program_version(tracked_direction "0.1")
+
+# Generate PIO header
+pico_generate_pio_header(${CMAKE_PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/ws2818b.pio)
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(tracked_direction 0)
