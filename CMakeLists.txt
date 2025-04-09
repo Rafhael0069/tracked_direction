@@ -28,6 +28,12 @@ set(PICO_BOARD pico_w CACHE STRING "Board type")
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
+# Definir variável para o caminho do FreeRTOS-Kernel
+set(FREERTOS_KERNEL_PATH ${CMAKE_CURRENT_SOURCE_DIR}/lib/FreeRTOS-Kernel)
+
+# Importar o SDK da Raspberry Pi Pico (deve ser antes do projeto)
+include(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/FreeRTOS_Kernel_import.cmake)
+
 project(tracked_direction C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
@@ -58,7 +64,8 @@ target_link_libraries(tracked_direction
         pico_cyw43_arch_lwip_threadsafe_background
         hardware_adc
         hardware_gpio
-        )
+        FreeRTOS-Kernel
+        FreeRTOS-Kernel-Heap4)
 
 # Add the standard include files to the build
 target_include_directories(tracked_direction PRIVATE

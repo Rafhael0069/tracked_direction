@@ -61,14 +61,14 @@ void send_data_to_server(const char *path, char *request_body, const char *type_
 }
 
 // Criando uma requisição
-void create_request(int data) {
+void create_request(char *data) {
     const char *type_method = "POST";
     const char *path = SERVER_PATH;
     char json_request[256];
 
     // Preparando o corpo da requisição
     snprintf(json_request, sizeof(json_request),
-             "{ \"dado\" : %d }",
+             "{ \"dado\" : \"%s\" }",
              data);
 
     // Enviando requisição para o servidor
