@@ -43,10 +43,10 @@ pico_sdk_init()
 
 add_executable(tracked_direction 
             tracked_direction.c 
-            utils/send_data.c 
-            utils/wifi_connect.c
-            utils/joystick.c
-            utils/matrix_control.c)
+            src/send_data.c 
+            src/wifi_connect.c
+            src/joystick.c
+            src/matrix_control.c)
 
 pico_set_program_name(tracked_direction "tracked_direction")
 pico_set_program_version(tracked_direction "0.1")
@@ -70,6 +70,8 @@ target_link_libraries(tracked_direction
 # Add the standard include files to the build
 target_include_directories(tracked_direction PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
+        ${CMAKE_CURRENT_LIST_DIR}/include
+        ${CMAKE_CURRENT_LIST_DIR}/src
 )
 
 # Add any user requested libraries

@@ -1,2 +1,6 @@
+# Ignore files and directories that should not be tracked by Git
 build
 server/node_modules
+
+# Local env files
+.env
