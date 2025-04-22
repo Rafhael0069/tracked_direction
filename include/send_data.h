@@ -4,3 +4,4 @@
 
 void send_data_to_server(const char *path, char *request_body, const char *type_method);
 void create_request(char *data);
+void check_server_status();

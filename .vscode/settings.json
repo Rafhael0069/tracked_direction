@@ -40,6 +40,9 @@
         "stdio.h": "c",
         "time.h": "c",
         "joystick.h": "c",
-        "matrices.h": "c"
+        "matrices.h": "c",
+        "matrix_control.h": "c",
+        "send_data.h": "c",
+        "wifi_connect.h": "c"
     }
 }

@@ -35,8 +35,10 @@ void init_gpio() {
 /** Função de inicialização do sistema */
 void setup() {
     stdio_init_all();
+    sleep_ms(5000); // Espera 5 segundos para estabilizar o sistema
     joystick_init();
     init_wifi();
+    check_server_status();
     npInit(LED_PIN);
     setBrightness(brightness);
     init_gpio();
@@ -141,7 +143,7 @@ void task_logger(void *params) {
     char msg[128];
     while (1) {
         if (xQueueReceive(log_queue, &msg, portMAX_DELAY)) {
-            printf("[LOG] %s\n", msg);
+            printf("[ LOG  ] %s\n", msg);
         }
     }
 }
@@ -151,35 +153,33 @@ void task_sender(void *params) {
     char msg[128];
     while (1) {
         if (xQueueReceive(send_queue, &msg, portMAX_DELAY)) {
-            printf("Enviando para servidor: %s\n", msg);
+            printf("[ SEND ] Enviando para servidor: %s\n", msg);
             create_request(msg);
+        } else {
+            printf("[ SEND ] Wi-Fi desconectado, não foi possível enviar: %s\n", msg);
         }
-        vTaskDelay(pdMS_TO_TICKS(3000)); // Delay entre envios
+        vTaskDelay(pdMS_TO_TICKS(1000)); // Delay entre envios
     }
 }
 
 /** Função principal */
 int main() {
+    
     setup();
-
     gpio_set_irq_enabled_with_callback(BUTTON_A, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true, &button_callback);
     gpio_set_irq_enabled_with_callback(BUTTON_B, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true, &button_callback);
 
     log_queue = xQueueCreate(5, sizeof(char[128]));
     send_queue = xQueueCreate(5, sizeof(char[128]));
 
-    sleep_ms(5000); // Espera 3 segundos para estabilizar o sistema
     printf("Sistema iniciado\n");
 
     if (log_queue == NULL || send_queue == NULL) {
         printf("Erro ao criar filas!\n");
         return 1;
+    } else {
+        printf("Filas criadas com sucesso!\n");
     }
-
-    // if (log_queue == NULL) {
-    //     printf("Erro ao criar filas!\n");
-    //     return 1;
-    // }
 
     xTaskCreate(task_joystick, "Joystick", 1024, NULL, 2, NULL);
     xTaskCreate(task_leds, "LEDs", 512, NULL, 1, NULL);
