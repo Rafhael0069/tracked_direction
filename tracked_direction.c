@@ -19,8 +19,16 @@
 volatile bool button_a_pressed = false;
 volatile bool button_b_pressed = false;
 
+typedef struct {
+    char direction[32];
+    bool button_a;
+    bool button_b;
+} DeviceState;
+
 QueueHandle_t log_queue;
 QueueHandle_t send_queue;
+QueueHandle_t state_queue;
+
 
 const int brightness = 160;
 
@@ -147,17 +155,58 @@ void task_logger(void *params) {
     }
 }
 
+/** Tarefa: Coleta de dados para envio para servidor */
+void task_data_collector(void *params) {
+    DeviceState state;
+
+    while (1) {
+        JoystickState js = joystick_read();
+        const char *direction = NULL;
+
+        int16_t x = js.x;
+        int16_t y = js.y;
+
+        // Verifica se está no centro
+        if (x >= -1 && x <= 1 && y >= -1 && y <= 1) {
+            strncpy(state.direction, "Centro", sizeof(state.direction));
+        } else {
+            int16_t abs_x = abs(x);
+            int16_t abs_y = abs(y);
+            int16_t diff = abs(abs_x - abs_y);
+            bool show_compass = (abs_x > 0 && abs_y > 0 && diff <= 4);
+
+            if (show_compass) {
+                const char *compass = get_compass_direction(x, y);
+                strncpy(state.direction, compass, sizeof(state.direction));
+            } else {
+                const char *main_dir = (abs_x > abs_y) ? get_cardinal_x(x) : get_cardinal_y(y);
+                strncpy(state.direction, main_dir, sizeof(state.direction));
+            }
+        }
+
+        state.button_a = !gpio_get(BUTTON_A);
+        state.button_b = !gpio_get(BUTTON_B);
+
+        xQueueOverwrite(state_queue, &state);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
 /** Tarefa: Envio de dados ao servidor */
 void task_sender(void *params) {
+    DeviceState state;
     char msg[128];
+
     while (1) {
-        if (xQueueReceive(send_queue, &msg, portMAX_DELAY)) {
+        if (xQueueReceive(state_queue, &state, portMAX_DELAY)) {
+            snprintf(msg, sizeof(msg), "Direção: %s | Botão A: %s | Botão B: %s",
+                     state.direction,
+                     state.button_a ? "Pressionado" : "Solto",
+                     state.button_b ? "Pressionado" : "Solto");
+
             printf("[ SEND ] Enviando para servidor: %s\n", msg);
             create_request(msg);
-        } else {
-            printf("[ SEND ] Wi-Fi desconectado, não foi possível enviar: %s\n", msg);
         }
-        // vTaskDelay(pdMS_TO_TICKS(1000)); // Delay entre envios
     }
 }
 
@@ -170,10 +219,11 @@ int main() {
 
     log_queue = xQueueCreate(5, sizeof(char[128]));
     send_queue = xQueueCreate(5, sizeof(char[128]));
+    state_queue = xQueueCreate(1, sizeof(DeviceState));
 
     printf("Sistema iniciado\n");
 
-    if (log_queue == NULL || send_queue == NULL) {
+    if (log_queue == NULL || send_queue == NULL || state_queue == NULL) {
         printf("Erro ao criar filas!\n");
         return 1;
     } else {
@@ -181,6 +231,7 @@ int main() {
     }
 
     xTaskCreate(task_joystick, "Joystick", 1024, NULL, 2, NULL);
+    xTaskCreate(task_data_collector, "DataCollector", 1024, NULL, 2, NULL);
     xTaskCreate(task_leds, "LEDs", 512, NULL, 1, NULL);
     xTaskCreate(task_logger, "Logger", 1024, NULL, 1, NULL);
     xTaskCreate(task_sender, "Sender", 1024, NULL, 1, NULL);
