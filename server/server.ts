@@ -11,8 +11,6 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 app.post('/receber', (req: Request, res: Response) => {
-    console.log('Headers:', req.headers);
-    console.log('Body:', req.body);
     const { dado } = req.body;
     console.log('Dado recebido:', dado);
     res.send('Dados recebidos com sucesso!');

@@ -38,7 +38,6 @@ void setup() {
     sleep_ms(5000); // Espera 5 segundos para estabilizar o sistema
     joystick_init();
     init_wifi();
-    check_server_status();
     npInit(LED_PIN);
     setBrightness(brightness);
     init_gpio();
@@ -158,7 +157,7 @@ void task_sender(void *params) {
         } else {
             printf("[ SEND ] Wi-Fi desconectado, não foi possível enviar: %s\n", msg);
         }
-        vTaskDelay(pdMS_TO_TICKS(1000)); // Delay entre envios
+        // vTaskDelay(pdMS_TO_TICKS(1000)); // Delay entre envios
     }
 }
 

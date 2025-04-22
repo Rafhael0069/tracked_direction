@@ -2,5 +2,6 @@
 build
 server/node_modules
 
-# Local env files
-.env
+# O 'wifi_credentials.h' é um arquivo de configuração que contém as credenciais de Wi-Fi, como SSID e senha. 
+# NÂO DEVE SER COMPARTILHADO PUBLICAMENTE.
+wifi_credentials.h
