@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "pico/stdlib.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -9,6 +10,7 @@
 #include "wifi_connect.h"
 #include "joystick.h"
 #include "matrix_control.h"
+#include "mic_reader.h"
 #include "utils/matrices.h"
 
 #define BUTTON_A 5
@@ -188,7 +190,10 @@ void task_data_collector(void *params) {
         state.button_b = !gpio_get(BUTTON_B);
 
         xQueueOverwrite(state_queue, &state);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(1000));  // Tempo de espera padrão para coleta de dados
+        // vTaskDelay(pdMS_TO_TICKS(4000));  // 4 segundos, só para teste
+        // vTaskDelay(pdMS_TO_TICKS(5000));  // 5 segundos, só para teste
+
     }
 }
 
@@ -197,17 +202,28 @@ void task_sender(void *params) {
     DeviceState state;
     char msg[128];
 
+    MicReader reader;
+    mic_reader_init(&reader, DEFAULT_MIC_CHANNEL, DEFAULT_SAMPLE_COUNT, DEFAULT_ADC_CLOCK_DIV);
+
     while (1) {
+        mic_reader_sample(&reader);   // Realiza uma leitura
+        float db_level = mic_reader_calculate_db(&reader);  // Calcula o nível em dB
+        uint8_t intensity = mic_reader_calculate_intensity(&reader, db_level); // Calcula a intensidade (0-4)
+
         if (xQueueReceive(state_queue, &state, portMAX_DELAY)) {
-            snprintf(msg, sizeof(msg), "Direção: %s | Botão A: %s | Botão B: %s",
+            snprintf(msg, sizeof(msg), "Direção: %s | Botão A: %s | Botão B: %s | Nível dB: %.2f | Intensidade: %d",
                      state.direction,
                      state.button_a ? "Pressionado" : "Solto",
-                     state.button_b ? "Pressionado" : "Solto");
+                     state.button_b ? "Pressionado" : "Solto",
+                     db_level,
+                     intensity);
 
             printf("[ SEND ] Enviando para servidor: %s\n", msg);
             create_request(msg);
         }
     }
+
+    mic_reader_deinit(&reader);
 }
 
 /** Função principal */

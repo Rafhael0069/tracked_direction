@@ -43,6 +43,7 @@ pico_sdk_init()
 
 add_executable(tracked_direction 
             tracked_direction.c 
+            src/mic_reader.c
             src/send_data.c 
             src/wifi_connect.c
             src/joystick.c
@@ -63,7 +64,11 @@ target_link_libraries(tracked_direction
         pico_stdlib
         pico_cyw43_arch_lwip_threadsafe_background
         hardware_adc
+        hardware_dma
+        hardware_pio
         hardware_gpio
+        pico_multicore
+        m  # Para math.h
         FreeRTOS-Kernel
         FreeRTOS-Kernel-Heap4)
 
