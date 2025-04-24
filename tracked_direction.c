@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include "pico/stdlib.h"
@@ -13,26 +12,39 @@
 #include "mic_reader.h"
 #include "utils/matrices.h"
 
+// Definições de hardware
 #define BUTTON_A 5
 #define BUTTON_B 6
 #define LED_PIN_GREEN 11
 #define LED_PIN_BLUE 12
+#define BRIGHTNESS 160
 
-volatile bool button_a_pressed = false;
-volatile bool button_b_pressed = false;
-
+// Estrutura de dados do dispositivo
 typedef struct {
     char direction[32];
     bool button_a;
     bool button_b;
+    float db_level;
+    uint8_t sound_intensity;
 } DeviceState;
 
+// Variáveis globais
+volatile bool button_a_pressed = false;
+volatile bool button_b_pressed = false;
 QueueHandle_t log_queue;
-QueueHandle_t send_queue;
 QueueHandle_t state_queue;
 
-
-const int brightness = 160;
+// Protótipos de funções
+void init_gpio();
+void setup();
+void button_callback(uint gpio, uint32_t events);
+const char* determine_direction(int16_t x, int16_t y);
+void update_led_matrix(const char* direction);
+void task_joystick(void *params);
+void task_leds(void *params);
+void task_logger(void *params);
+void task_sensor_reader(void *params);
+void task_data_sender(void *params);
 
 /** Função de inicialização de botões */
 void init_gpio() {
@@ -45,11 +57,11 @@ void init_gpio() {
 /** Função de inicialização do sistema */
 void setup() {
     stdio_init_all();
-    sleep_ms(5000); // Espera 5 segundos para estabilizar o sistema
+    sleep_ms(5000); // Espera para estabilização
     joystick_init();
     init_wifi();
     npInit(LED_PIN);
-    setBrightness(brightness);
+    setBrightness(BRIGHTNESS);
     init_gpio();
 }
 
@@ -59,38 +71,29 @@ void button_callback(uint gpio, uint32_t events) {
     else if (gpio == BUTTON_B) button_b_pressed = (events & GPIO_IRQ_EDGE_FALL);
 }
 
-/** Função de recuperação do eixo x */
-const char* get_cardinal_x(int16_t value) {
-    if (value > 1) {
-        updateMatrix(north_arrow, 0, 255, 0); return "Norte";
-    } else if (value < -1) {
-        updateMatrix(south_arrow, 0, 255, 0); return "Sul";
+/** Função para determinar a direção com base nos valores do joystick */
+const char* determine_direction(int16_t x, int16_t y) {
+    if (x >= -1 && x <= 1 && y >= -1 && y <= 1) {
+        updateMatrix(center_pattern, 0, 255, 0);
+        return "Centro";
     }
-    return NULL;
-}
 
-/** Função de recuperação do eixo y */
-const char* get_cardinal_y(int16_t value) {
-    if (value < -1) {
-        updateMatrix(west_arrow, 0, 255, 0); return "Oeste";
-    } else if (value > 1) {
-        updateMatrix(east_arrow, 0, 255, 0); return "Leste";
-    }
-    return NULL;
-}
+    int16_t abs_x = abs(x), abs_y = abs(y);
+    bool is_diagonal = (abs_x > 0 && abs_y > 0 && abs(abs_x - abs_y) <= 4);
 
-/** Função de recuperação da direção da bússola */
-const char* get_compass_direction(int16_t x, int16_t y) {
-    if (x > 1 && y > 0) {
-        updateMatrix(northwest_arrow, 0, 255, 0); return "Noroeste";
-    } else if (x > 1 && y <= 0) {
-        updateMatrix(northeast_arrow, 0, 255, 0); return "Nordeste";
-    } else if (x < -1 && y > 0) {
-        updateMatrix(southwest_arrow, 0, 255, 0); return "Sudoeste";
-    } else if (x < -1 && y <= 0) {
-        updateMatrix(southeast_arrow, 0, 255, 0); return "Sudeste";
+    if (is_diagonal) {
+        if (x > 1 && y > 0) { updateMatrix(northwest_arrow, 0, 255, 0); return "Noroeste"; }
+        if (x > 1 && y <= 0) { updateMatrix(northeast_arrow, 0, 255, 0); return "Nordeste"; }
+        if (x < -1 && y > 0) { updateMatrix(southwest_arrow, 0, 255, 0); return "Sudoeste"; }
+        if (x < -1 && y <= 0) { updateMatrix(southeast_arrow, 0, 255, 0); return "Sudeste"; }
+    } else {
+        if (x > 1) { updateMatrix(north_arrow, 0, 255, 0); return "Norte"; }
+        if (x < -1) { updateMatrix(south_arrow, 0, 255, 0); return "Sul"; }
+        if (y < -1) { updateMatrix(west_arrow, 0, 255, 0); return "Oeste"; }
+        if (y > 1) { updateMatrix(east_arrow, 0, 255, 0); return "Leste"; }
     }
-    return NULL;
+    
+    return "Desconhecido";
 }
 
 /** Tarefa: Leitura do joystick */
@@ -102,30 +105,9 @@ void task_joystick(void *params) {
         current = joystick_read();
 
         if (current.x != last.x || current.y != last.y) {
-            snprintf(log_msg, sizeof(log_msg), "Posição: X=%+3d, Y=%+3d", current.x, current.y);
-
-            if (current.x >= -1 && current.x <= 1 && current.y >= -1 && current.y <= 1) {
-                updateMatrix(center_pattern, 0, 255, 0);
-                strncat(log_msg, " (Centro)", sizeof(log_msg) - strlen(log_msg) - 1);
-            } else {
-                int16_t abs_x = abs(current.x);
-                int16_t abs_y = abs(current.y);
-                int16_t diff = abs(abs_x - abs_y);
-                bool show_compass = (abs_x > 0 && abs_y > 0 && diff <= 4);
-
-                if (show_compass) {
-                    const char *compass = get_compass_direction(current.x, current.y);
-                    const char *primary = (abs_x > abs_y) ? get_cardinal_x(current.x) : get_cardinal_y(current.y);
-                    const char *secondary = (abs_x > abs_y) ? get_cardinal_y(current.y) : get_cardinal_x(current.x);
-                    snprintf(log_msg + strlen(log_msg), sizeof(log_msg) - strlen(log_msg), " %s (%s - %s)", compass, primary, secondary);
-                } else {
-                    const char *main_dir = (abs_x > abs_y) ? get_cardinal_x(current.x) : get_cardinal_y(current.y);
-                    snprintf(log_msg + strlen(log_msg), sizeof(log_msg) - strlen(log_msg), " %s", main_dir);
-                }
-            }
-
+            const char* dir = determine_direction(current.x, current.y);
+            snprintf(log_msg, sizeof(log_msg), "Posição: X=%+3d, Y=%+3d %s", current.x, current.y, dir);
             xQueueSend(log_queue, &log_msg, portMAX_DELAY);
-            xQueueSend(send_queue, &log_msg, portMAX_DELAY);
             last = current;
         }
 
@@ -152,107 +134,75 @@ void task_logger(void *params) {
     char msg[128];
     while (1) {
         if (xQueueReceive(log_queue, &msg, portMAX_DELAY)) {
-            printf("[ LOG  ] %s\n", msg);
+            printf("[LOG] %s\n", msg);
         }
     }
 }
 
 /** Tarefa: Coleta de dados para envio para servidor */
-void task_data_collector(void *params) {
+void task_sensor_reader(void *params) {
     DeviceState state;
+    MicReader mic;
+    mic_reader_init(&mic, DEFAULT_MIC_CHANNEL, DEFAULT_SAMPLE_COUNT, DEFAULT_ADC_CLOCK_DIV);
 
     while (1) {
+        // Leitura do joystick
         JoystickState js = joystick_read();
-        const char *direction = NULL;
-
-        int16_t x = js.x;
-        int16_t y = js.y;
-
-        // Verifica se está no centro
-        if (x >= -1 && x <= 1 && y >= -1 && y <= 1) {
-            strncpy(state.direction, "Centro", sizeof(state.direction));
-        } else {
-            int16_t abs_x = abs(x);
-            int16_t abs_y = abs(y);
-            int16_t diff = abs(abs_x - abs_y);
-            bool show_compass = (abs_x > 0 && abs_y > 0 && diff <= 4);
-
-            if (show_compass) {
-                const char *compass = get_compass_direction(x, y);
-                strncpy(state.direction, compass, sizeof(state.direction));
-            } else {
-                const char *main_dir = (abs_x > abs_y) ? get_cardinal_x(x) : get_cardinal_y(y);
-                strncpy(state.direction, main_dir, sizeof(state.direction));
-            }
-        }
-
+        strncpy(state.direction, determine_direction(js.x, js.y), sizeof(state.direction));
         state.button_a = !gpio_get(BUTTON_A);
         state.button_b = !gpio_get(BUTTON_B);
 
-        xQueueOverwrite(state_queue, &state);
-        vTaskDelay(pdMS_TO_TICKS(1000));  // Tempo de espera padrão para coleta de dados
-        // vTaskDelay(pdMS_TO_TICKS(4000));  // 4 segundos, só para teste
-        // vTaskDelay(pdMS_TO_TICKS(5000));  // 5 segundos, só para teste
+        // Leitura do microfone
+        mic_reader_sample(&mic);
+        state.db_level = mic_reader_calculate_db(&mic);
+        state.sound_intensity = mic_reader_calculate_intensity(&mic, state.db_level);
 
+        xQueueOverwrite(state_queue, &state);
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
+    
+    mic_reader_deinit(&mic);
 }
 
 /** Tarefa: Envio de dados ao servidor */
-void task_sender(void *params) {
+void task_data_sender(void *params) {
     DeviceState state;
-    char msg[128];
-
-    MicReader reader;
-    mic_reader_init(&reader, DEFAULT_MIC_CHANNEL, DEFAULT_SAMPLE_COUNT, DEFAULT_ADC_CLOCK_DIV);
+    char json_payload[256];
 
     while (1) {
-        mic_reader_sample(&reader);   // Realiza uma leitura
-        float db_level = mic_reader_calculate_db(&reader);  // Calcula o nível em dB
-        uint8_t intensity = mic_reader_calculate_intensity(&reader, db_level); // Calcula a intensidade (0-4)
-
         if (xQueueReceive(state_queue, &state, portMAX_DELAY)) {
-            snprintf(msg, sizeof(msg), "Direção: %s | Botão A: %s | Botão B: %s | Nível dB: %.2f | Intensidade: %d",
-                     state.direction,
-                     state.button_a ? "Pressionado" : "Solto",
-                     state.button_b ? "Pressionado" : "Solto",
-                     db_level,
-                     intensity);
+            snprintf(json_payload, sizeof(json_payload),
+                "Direção: %s | Botão A: %s | Botão B: %s | Nível dB: %.2f | Intensidade: %d",
+                state.direction, state.button_a ? "Pressionado" : "Solto",
+                state.button_b ? "Pressionado" : "Solto", state.db_level, 
+                state.sound_intensity);
 
-            printf("[ SEND ] Enviando para servidor: %s\n", msg);
-            create_request(msg);
+            printf("[ SEND ] %s\n", json_payload);
+            create_request(json_payload);
         }
     }
-
-    mic_reader_deinit(&reader);
 }
 
 /** Função principal */
 int main() {
-    
     setup();
     gpio_set_irq_enabled_with_callback(BUTTON_A, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true, &button_callback);
     gpio_set_irq_enabled_with_callback(BUTTON_B, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true, &button_callback);
 
     log_queue = xQueueCreate(5, sizeof(char[128]));
-    send_queue = xQueueCreate(5, sizeof(char[128]));
     state_queue = xQueueCreate(1, sizeof(DeviceState));
 
-    printf("Sistema iniciado\n");
-
-    if (log_queue == NULL || send_queue == NULL || state_queue == NULL) {
+    if (!log_queue || !state_queue) {
         printf("Erro ao criar filas!\n");
         return 1;
-    } else {
-        printf("Filas criadas com sucesso!\n");
     }
 
     xTaskCreate(task_joystick, "Joystick", 1024, NULL, 2, NULL);
-    xTaskCreate(task_data_collector, "DataCollector", 1024, NULL, 2, NULL);
+    xTaskCreate(task_sensor_reader, "SensorReader", 1024, NULL, 2, NULL);
     xTaskCreate(task_leds, "LEDs", 512, NULL, 1, NULL);
     xTaskCreate(task_logger, "Logger", 1024, NULL, 1, NULL);
-    xTaskCreate(task_sender, "Sender", 1024, NULL, 1, NULL);
+    xTaskCreate(task_data_sender, "DataSender", 1024, NULL, 1, NULL);
 
     vTaskStartScheduler();
-
     while (true) {}
 }
