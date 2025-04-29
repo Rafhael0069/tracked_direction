@@ -1,8 +1,8 @@
 #include "send_data.h"
 
-#define SERVER_IP "192.168.1.168"        // ip do servidor
-#define SERVER_PORT 3000                // porta do servidor
-#define SERVER_PATH "/receber"          // rota de envio de dados
+#define SERVER_IP "192.168.1.130"        // ip do servidor
+#define SERVER_PORT 3000                 // porta do servidor
+#define SERVER_PATH "/receber"           // rota de envio de dados
 
 #define TCP_TIMEOUT_MS 5000
 #define MAX_RETRIES 3
@@ -10,7 +10,8 @@
 // Callback para quando os dados são enviados
 static err_t sent_callback(void *arg, struct tcp_pcb *pcb, u16_t len) {
     printf("[ RESP ] Dados enviados com sucesso!\n");
-    tcp_close(pcb); // Fecha a conexão TCP
+    tcp_abort(pcb);  // Fecha a conexão TCP
+    tcp_close(pcb);  // Fecha a conexão TCP
     return ERR_OK;
 }
 
@@ -21,10 +22,7 @@ void send_data_to_server(const char *path, char *request_body, const char *type_
     if (!pcb) {
         printf("[ ERRO ] Erro ao criar PCB\n");
         return;
-    } 
-    // else {
-    //     printf("[ INFO ] PCB criado com sucesso\n");
-    // }
+    }
 
     // Organizando o endereço IP
     ip_addr_t server_ip;
@@ -33,12 +31,10 @@ void send_data_to_server(const char *path, char *request_body, const char *type_
     // Conectando ao servidor
     if (tcp_connect(pcb, &server_ip, SERVER_PORT, NULL) != ERR_OK) {
         printf("[ ERRO ] Erro ao conectar ao servidor\n");
-        tcp_abort(pcb);
+        tcp_abort(pcb);  // Fecha a conexão TCP
+        tcp_close(pcb);  // Fecha a conexão TCP
         return;
-    } 
-    // else {
-    //     printf("[ INFO ] Conectado ao servidor %s:%d\n", SERVER_IP, SERVER_PORT);
-    // }
+    }
 
     // Montando requisição
     char request[521];
@@ -57,22 +53,18 @@ void send_data_to_server(const char *path, char *request_body, const char *type_
     // Empacotando a requisição
     if (tcp_write(pcb, request, strlen(request), TCP_WRITE_FLAG_COPY) != ERR_OK) {
         printf("[ ERRO ] Erro ao enviar dados\n");
-        tcp_abort(pcb);
+        tcp_abort(pcb);  // Fecha a conexão TCP
+        tcp_close(pcb);  // Fecha a conexão TCP
         return;
-    } 
-    // else {
-    //     printf("[ INFO ] Dados enviados: %s\n", request);
-    // }
+    }
 
     // Enviando a requisição
     if (tcp_output(pcb) != ERR_OK) {
         printf("[ ERRO ] Erro ao enviar dados (tcp_output)\n");
-        tcp_abort(pcb);
+        tcp_abort(pcb);  // Fecha a conexão TCP
+        tcp_close(pcb);  // Fecha a conexão TCP
         return;
-    } 
-    // else {
-    //     printf("[ INFO ] Dados enviados com sucesso (tcp_output)\n");
-    // }
+    }
 }
 
 // Criando uma requisição

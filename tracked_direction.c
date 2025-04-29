@@ -10,6 +10,7 @@
 #include "joystick.h"
 #include "matrix_control.h"
 #include "mic_reader.h"
+#include "temperature.h"
 #include "utils/matrices.h"
 
 // Definições de hardware
@@ -26,6 +27,7 @@ typedef struct {
     bool button_b;
     float db_level;
     uint8_t sound_intensity;
+    float temperature;
 } DeviceState;
 
 // Variáveis globais
@@ -50,8 +52,8 @@ void task_data_sender(void *params);
 void init_gpio() {
     gpio_init(LED_PIN_GREEN); gpio_set_dir(LED_PIN_GREEN, GPIO_OUT);
     gpio_init(LED_PIN_BLUE);  gpio_set_dir(LED_PIN_BLUE, GPIO_OUT);
-    gpio_init(BUTTON_A);      gpio_set_dir(BUTTON_A, GPIO_IN); gpio_pull_up(BUTTON_A);
-    gpio_init(BUTTON_B);      gpio_set_dir(BUTTON_B, GPIO_IN); gpio_pull_up(BUTTON_B);
+    gpio_init(BUTTON_A);      gpio_set_dir(BUTTON_A, GPIO_IN);      gpio_pull_up(BUTTON_A);
+    gpio_init(BUTTON_B);      gpio_set_dir(BUTTON_B, GPIO_IN);      gpio_pull_up(BUTTON_B);
 }
 
 /** Função de inicialização do sistema */
@@ -63,6 +65,7 @@ void setup() {
     npInit(LED_PIN);
     setBrightness(BRIGHTNESS);
     init_gpio();
+    temperature_init(); 
 }
 
 /** Função de callback para os botões */
@@ -79,18 +82,20 @@ const char* determine_direction(int16_t x, int16_t y) {
     }
 
     int16_t abs_x = abs(x), abs_y = abs(y);
-    bool is_diagonal = (abs_x > 0 && abs_y > 0 && abs(abs_x - abs_y) <= 4);
+    int16_t diff = abs(abs_x - abs_y);
 
-    if (is_diagonal) {
-        if (x > 1 && y > 0) { updateMatrix(northwest_arrow, 0, 255, 0); return "Noroeste"; }
-        if (x > 1 && y <= 0) { updateMatrix(northeast_arrow, 0, 255, 0); return "Nordeste"; }
-        if (x < -1 && y > 0) { updateMatrix(southwest_arrow, 0, 255, 0); return "Sudoeste"; }
-        if (x < -1 && y <= 0) { updateMatrix(southeast_arrow, 0, 255, 0); return "Sudeste"; }
+    if (diff <= 4 && abs_x > 2 && abs_y > 2) {
+        if (x >  0 && y >  0) { updateMatrix(northwest_arrow, 0, 255, 0); return "Noroeste"; }
+        if (x >  0 && y <  0) { updateMatrix(northeast_arrow, 0, 255, 0); return "Nordeste"; }
+        if (x <  0 && y >  0) { updateMatrix(southwest_arrow, 0, 255, 0); return "Sudoeste"; }
+        if (x <  0 && y <  0) { updateMatrix(southeast_arrow, 0, 255, 0); return "Sudeste";  }
+    }
+    if (abs_x >= abs_y) {
+        if (x > 2)  { updateMatrix(north_arrow, 0, 255, 0); return "Norte"; }
+        if (x < -2) { updateMatrix(south_arrow, 0, 255, 0); return "Sul";   }
     } else {
-        if (x > 1) { updateMatrix(north_arrow, 0, 255, 0); return "Norte"; }
-        if (x < -1) { updateMatrix(south_arrow, 0, 255, 0); return "Sul"; }
-        if (y < -1) { updateMatrix(west_arrow, 0, 255, 0); return "Oeste"; }
-        if (y > 1) { updateMatrix(east_arrow, 0, 255, 0); return "Leste"; }
+        if (y < -2) { updateMatrix(west_arrow,  0, 255, 0); return "Oeste"; }
+        if (y >  2) { updateMatrix(east_arrow,  0, 255, 0); return "Leste"; }
     }
     
     return "Desconhecido";
@@ -155,10 +160,24 @@ void task_sensor_reader(void *params) {
         // Leitura do microfone
         mic_reader_sample(&mic);
         state.db_level = mic_reader_calculate_db(&mic);
-        state.sound_intensity = mic_reader_calculate_intensity(&mic, state.db_level);
+        state.sound_intensity = mic_reader_calculate_intensity(state.db_level);
+
+        // Leitura da temperatura
+        state.temperature = read_internal_temperature();
 
         xQueueOverwrite(state_queue, &state);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+
+        // Tempo quando inativo: 2 minutos e 15 segundos
+        // Tempo mexendo no JoyStick: 3 minutos e 14 segundos
+        // vTaskDelay(pdMS_TO_TICKS(1000)); // Tempo de espera entre leituras e envios (Requisitado)
+
+        // Tempo quando inativo: 6 minutos e 40 segundos
+        // Tempo mexendo no JoyStick: 3 minutos e 14 segundos mexendo
+        vTaskDelay(pdMS_TO_TICKS(2000)); 
+        
+        // Tempo quando inativo: 10 minutos
+        // Tempo mexendo no JoyStick: 2 minutos
+        // vTaskDelay(pdMS_TO_TICKS(3000));
     }
     
     mic_reader_deinit(&mic);
@@ -167,15 +186,15 @@ void task_sensor_reader(void *params) {
 /** Tarefa: Envio de dados ao servidor */
 void task_data_sender(void *params) {
     DeviceState state;
-    char json_payload[256];
+    char json_payload[300];
 
     while (1) {
         if (xQueueReceive(state_queue, &state, portMAX_DELAY)) {
             snprintf(json_payload, sizeof(json_payload),
-                "Direção: %s | Botão A: %s | Botão B: %s | Nível dB: %.2f | Intensidade: %d",
+                "Direção: %s | Botão A: %s | Botão B: %s | Nível dB: %.2f | Intensidade: %d | Temp: %.2f°C",
                 state.direction, state.button_a ? "Pressionado" : "Solto",
                 state.button_b ? "Pressionado" : "Solto", state.db_level, 
-                state.sound_intensity);
+                state.sound_intensity, state.temperature);
 
             printf("[ SEND ] %s\n", json_payload);
             create_request(json_payload);
@@ -201,7 +220,7 @@ int main() {
     xTaskCreate(task_sensor_reader, "SensorReader", 1024, NULL, 2, NULL);
     xTaskCreate(task_leds, "LEDs", 512, NULL, 1, NULL);
     xTaskCreate(task_logger, "Logger", 1024, NULL, 1, NULL);
-    xTaskCreate(task_data_sender, "DataSender", 1024, NULL, 1, NULL);
+    xTaskCreate(task_data_sender, "DataSender", 1024, NULL, 2, NULL);
 
     vTaskStartScheduler();
     while (true) {}

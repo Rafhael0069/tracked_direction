@@ -44,6 +44,7 @@ pico_sdk_init()
 add_executable(tracked_direction 
             tracked_direction.c 
             src/mic_reader.c
+            src/temperature.c
             src/send_data.c 
             src/wifi_connect.c
             src/joystick.c

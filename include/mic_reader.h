@@ -37,6 +37,6 @@ void mic_reader_sample(MicReader *reader);
 float mic_reader_calculate_db(MicReader *reader);
 
 // Calcula a intensidade do som (0-4)
-uint8_t mic_reader_calculate_intensity(MicReader *reader, float db);
+uint8_t mic_reader_calculate_intensity(float db);
 
 #endif // MIC_READER_H

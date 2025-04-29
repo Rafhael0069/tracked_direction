@@ -68,12 +68,14 @@ float mic_reader_calculate_db(MicReader *reader) {
     }
     
     float rms = sqrtf(sum_squares / reader->sample_count);
-    
+
+    if (rms <= 0.0000001f) return -100.0f; // ou algum valor mínimo padrão
+
     // Convertendo para dB (valor relativo, não absoluto)
     return 20.0f * log10f(rms / 0.00002f);  // 0.00002 é o limiar de audição em Pascal
 }
 
-uint8_t mic_reader_calculate_intensity(MicReader *reader, float db) {
+uint8_t mic_reader_calculate_intensity(float db) {
     // Ajuste esses valores conforme necessário para sua aplicação
     const float db_ranges[] = {50.0f, 60.0f, 70.0f, 80.0f};
     uint8_t intensity = 0;
