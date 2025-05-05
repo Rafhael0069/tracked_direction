@@ -2,6 +2,10 @@
 #include "lwip/ip_addr.h"
 #include "pico/cyw43_arch.h"
 
+// #define SERVER_IP "192.168.1.80"
+// #define SERVER_PORT 3000
+// #define SERVER_PATH "/receber"
+
 #define SERVER_IP "192.168.1.80"
 #define SERVER_PORT 3000
 #define SERVER_PATH "/receber"

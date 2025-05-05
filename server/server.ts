@@ -1,6 +1,7 @@
-import express, { Request, Response, NextFunction, process } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 const app = express();
 
+// Porta dinâmica para Render e fallback para local (porta 3000)
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
@@ -49,6 +50,7 @@ app.get('/status', (req: Request, res: Response) => {
     res.send('Servidor está funcionando corretamente!');
 });
 
+// Escuta na porta dinâmica (Render fornece process.env.PORT)
 app.listen(PORT, () => {
-    console.log(`Servidor rodando em http://localhost:${PORT}`);
+    console.log(`Servidor rodando na porta ${PORT}`);
 });
