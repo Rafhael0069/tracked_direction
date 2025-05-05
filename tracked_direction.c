@@ -139,7 +139,7 @@ void task_logger(void *params) {
     char msg[128];
     while (1) {
         if (xQueueReceive(log_queue, &msg, portMAX_DELAY)) {
-            printf("[LOG] %s\n", msg);
+            printf("[ LOG  ] %s\n", msg);
         }
     }
 }
@@ -167,17 +167,8 @@ void task_sensor_reader(void *params) {
 
         xQueueOverwrite(state_queue, &state);
 
-        // Tempo quando inativo: 2 minutos e 15 segundos
-        // Tempo mexendo no JoyStick: 3 minutos e 14 segundos
-        // vTaskDelay(pdMS_TO_TICKS(1000)); // Tempo de espera entre leituras e envios (Requisitado)
+        vTaskDelay(pdMS_TO_TICKS(1000)); // Tempo de espera entre leituras e envios (Requisitado)
 
-        // Tempo quando inativo: 6 minutos e 40 segundos
-        // Tempo mexendo no JoyStick: 3 minutos e 14 segundos mexendo
-        vTaskDelay(pdMS_TO_TICKS(2000)); 
-        
-        // Tempo quando inativo: 10 minutos
-        // Tempo mexendo no JoyStick: 2 minutos
-        // vTaskDelay(pdMS_TO_TICKS(3000));
     }
     
     mic_reader_deinit(&mic);
@@ -190,14 +181,13 @@ void task_data_sender(void *params) {
 
     while (1) {
         if (xQueueReceive(state_queue, &state, portMAX_DELAY)) {
-            snprintf(json_payload, sizeof(json_payload),
-                "Direção: %s | Botão A: %s | Botão B: %s | Nível dB: %.2f | Intensidade: %d | Temp: %.2f°C",
+            printf("[ SEND ] Direção: %s | Botão A: %s | Botão B: %s | Nível dB: %.2f | Intensidade: %d | Temp: %.2f°C\n",
                 state.direction, state.button_a ? "Pressionado" : "Solto",
                 state.button_b ? "Pressionado" : "Solto", state.db_level, 
                 state.sound_intensity, state.temperature);
 
-            printf("[ SEND ] %s\n", json_payload);
-            create_request(json_payload);
+            create_request( state.direction, state.button_a, state.button_b, 
+                state.db_level, state.sound_intensity, state.temperature );
         }
     }
 }
