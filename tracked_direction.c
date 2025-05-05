@@ -167,8 +167,17 @@ void task_sensor_reader(void *params) {
 
         xQueueOverwrite(state_queue, &state);
 
+        // Tempo quando inativo: 2 minutos e 15 segundos
+        // Tempo mexendo no JoyStick: 3 minutos e 14 segundos
         vTaskDelay(pdMS_TO_TICKS(1000)); // Tempo de espera entre leituras e envios (Requisitado)
 
+        // Tempo quando inativo: 6 minutos e 40 segundos
+        // Tempo mexendo no JoyStick: 3 minutos e 14 segundos mexendo
+        // vTaskDelay(pdMS_TO_TICKS(2000)); 
+        
+        // Tempo quando inativo: 10 minutos
+        // Tempo mexendo no JoyStick: 2 minutos
+        // vTaskDelay(pdMS_TO_TICKS(3000));
     }
     
     mic_reader_deinit(&mic);
