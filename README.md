@@ -48,11 +48,6 @@ Inclui também a leitura do botão do joystick e transmissão periódica das inf
 
 --- 
 
-### **Capturas de Tela (Opcional)**  
-*(Adicione imagens do Wokwi/Bitdoglab em ação aqui)*   
-
---- 
-
 **Atualizado em:** `10/05/2025`
 
 ---
