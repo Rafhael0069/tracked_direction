@@ -23,7 +23,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Rota para receber os dados do microcontrolador
-app.post('/receber', (req: Request, res: Response) => {
+app.post('/setdata', (req: Request, res: Response) => {
     const { direc, but_a, but_b, db_le, inten, tempe } = req.body;
 
     // Atualiza os dados armazenados
@@ -41,7 +41,7 @@ app.post('/receber', (req: Request, res: Response) => {
 });
 
 // Nova rota para enviar os dados atuais em JSON
-app.get('/dados', (req: Request, res: Response) => {
+app.get('/data', (req: Request, res: Response) => {
     res.json(data);
 });
 

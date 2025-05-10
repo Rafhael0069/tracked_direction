@@ -1,33 +1,50 @@
-# **Tracked Direction**  
-### *Joystick Data Logger for IoT*  
+# **Tracked Direction**
 
-**Descrição:**  
-Projeto desenvolvido para a placa **Bitdoglab/RP2040** que monitora a posição de um joystick, converte as coordenadas em direções cardinais (Norte, Sul, Leste, Oeste, etc.) e envia os dados para um servidor local ou na nuvem via Wi-Fi. Inclui também a leitura de botões e um sensor adicional (desafio extra).  
+### *Joystick Controller with LED Matrix & IoT Data Sync*
 
----
+**Descrição:**
+Projeto desenvolvido para a placa **Bitdoglab/RP2040** que realiza a leitura da posição de um **joystick analógico**, converte as coordenadas em direções e controla uma **matriz de LEDs RGB 5x5** com feedback visual em tempo real. Além disso, envia os dados coletados para um **servidor remoto** via **Wi-Fi**, permitindo integração com aplicações IoT locais ou na nuvem.
 
-## **Funcionalidades**  
-✅ **Leitura do Joystick:**  
-- Captura os valores analógicos dos eixos **X** e **Y**.  
-- Mapeia as coordenadas para direções cardinais (ex: `X=255, Y=0 → "Leste"`).  
-
-✅ **Monitoramento de Botões:**  
-- Envia o status dos botões da placa a cada **1 segundo**.  
+Inclui também a leitura do botão do joystick e transmissão periódica das informações para monitoramento externo.
 
 ---
 
-## **Tecnologias Utilizadas**  
-- **Hardware:**  
-  - Placa Bitdoglab com RP2040.  
-  - Joystick analógico.
-- **Software:**  
-  - Linguagem: **C (bare metal)**.  
-  - Protocolo: **MQTT** (para nuvem) ou **HTTP** (para servidor local).  
-  - Ferramentas: **Wokwi** (simulação), **AWS IoT Core/Firebase** (nuvem).  
+## **Funcionalidades**
+
+✅ **Leitura do Joystick:**
+
+* Captura valores analógicos dos eixos **X** e **Y**.
+* Normaliza os valores para a faixa de **-10 a 10**, facilitando a interpretação dos movimentos.
+* Detecta o pressionamento do botão central do joystick.
+
+✅ **Controle da Matriz de LEDs (5x5):**
+
+* Exibe visualmente a direção movida pelo joystick com animações coloridas.
+* Permite ajuste do brilho global dos LEDs para otimização visual e energética.
+
+✅ **Envio dos Dados via Wi-Fi:**
+
+* Transmite os valores do joystick e o status do botão para um servidor remoto a cada **1 segundo**.
+* Compatível com servidores locais (HTTP) ou nuvem (ex: AWS, Firebase).
 
 ---
 
-**Nota:** Este projeto foi desenvolvido como parte da Unidade 2 da disciplina *"Aplicações com Comunicação Sem Fio para IoT"*.  
+## **Tecnologias Utilizadas**
+
+* **Hardware:**
+
+  * Placa Bitdoglab com RP2040 (baseada no Raspberry Pi Pico W).
+  * Joystick analógico com botão integrado.
+  * Matriz de LEDs RGB WS2812B (5x5).
+
+* **Software:**
+
+  * Linguagem: **C (bare metal)**.
+  * Comunicação: **HTTP** (atualmente implementado) e compatível para expansão com **MQTT**.
+
+---
+
+**Nota:** Este projeto foi desenvolvido como parte da *Unidade 2* da disciplina *"Aplicações com Comunicação Sem Fio para IoT"*, aplicando conceitos reais de sistemas embarcados conectados. 
 
 --- 
 
@@ -36,7 +53,7 @@ Projeto desenvolvido para a placa **Bitdoglab/RP2040** que monitora a posição 
 
 --- 
 
-**Atualizado em:** `08/04/2025`  
+**Atualizado em:** `10/05/2025`
 
 ---
 

@@ -2,13 +2,9 @@
 #include "lwip/ip_addr.h"
 #include "pico/cyw43_arch.h"
 
-// #define SERVER_IP "192.168.1.80"
-// #define SERVER_PORT 3000
-// #define SERVER_PATH "/receber"
-
-#define SERVER_IP "192.168.1.80"
+#define SERVER_IP "192.168.1.18"
 #define SERVER_PORT 3000
-#define SERVER_PATH "/receber"
+#define SERVER_PATH "/setdata"
 
 static err_t tcp_client_sent(void *arg, struct tcp_pcb *tpcb, u16_t len);
 static err_t tcp_client_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err);

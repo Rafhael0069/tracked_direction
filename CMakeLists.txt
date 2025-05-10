@@ -68,7 +68,6 @@ target_link_libraries(tracked_direction
         hardware_dma
         hardware_pio
         hardware_gpio
-        pico_multicore
         m  # Para math.h
         FreeRTOS-Kernel
         FreeRTOS-Kernel-Heap4)
@@ -82,7 +81,6 @@ target_include_directories(tracked_direction PRIVATE
 
 # Add any user requested libraries
 target_link_libraries(tracked_direction 
-        pico_cyw43_arch_none
         )
 
 pico_add_extra_outputs(tracked_direction)

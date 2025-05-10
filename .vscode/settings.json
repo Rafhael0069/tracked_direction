@@ -46,6 +46,8 @@
         "wifi_connect.h": "c",
         "stdlib.h": "c",
         "wifi_credentials.h": "c",
-        "sockets.h": "c"
+        "sockets.h": "c",
+        "tcp.h": "c",
+        "mic_reader.h": "c"
     }
 }

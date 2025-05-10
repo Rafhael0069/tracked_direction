@@ -48,7 +48,7 @@ void task_logger(void *params);
 void task_sensor_reader(void *params);
 void task_data_sender(void *params);
 
-/** Função de inicialização de botões */
+/** Inicializa os pinos GPIO dos LEDs e botões */
 void init_gpio() {
     gpio_init(LED_PIN_GREEN); gpio_set_dir(LED_PIN_GREEN, GPIO_OUT);
     gpio_init(LED_PIN_BLUE);  gpio_set_dir(LED_PIN_BLUE, GPIO_OUT);
@@ -56,10 +56,9 @@ void init_gpio() {
     gpio_init(BUTTON_B);      gpio_set_dir(BUTTON_B, GPIO_IN);      gpio_pull_up(BUTTON_B);
 }
 
-/** Função de inicialização do sistema */
+/** Inicializa todo o sistema: joystick, Wi-Fi, matriz de LEDs, temperatura e GPIOs */
 void setup() {
     stdio_init_all();
-    sleep_ms(5000); // Espera para estabilização
     joystick_init();
     init_wifi();
     npInit(LED_PIN);
@@ -68,13 +67,13 @@ void setup() {
     temperature_init(); 
 }
 
-/** Função de callback para os botões */
+/** Detecta quando os botões A e B são pressionados ou soltos */
 void button_callback(uint gpio, uint32_t events) {
     if (gpio == BUTTON_A) button_a_pressed = (events & GPIO_IRQ_EDGE_FALL);
     else if (gpio == BUTTON_B) button_b_pressed = (events & GPIO_IRQ_EDGE_FALL);
 }
 
-/** Função para determinar a direção com base nos valores do joystick */
+/** Determina a direção com base na leitura do joystick e atualiza a matriz de LEDs */
 const char* determine_direction(int16_t x, int16_t y) {
     if (x >= -1 && x <= 1 && y >= -1 && y <= 1) {
         updateMatrix(center_pattern, 0, 255, 0);
@@ -101,7 +100,7 @@ const char* determine_direction(int16_t x, int16_t y) {
     return "Desconhecido";
 }
 
-/** Tarefa: Leitura do joystick */
+/** Tarefa: Lê continuamente o estado do joystick e envia logs quando a posição muda */
 void task_joystick(void *params) {
     JoystickState current, last = {0};
     char log_msg[128];
@@ -125,7 +124,7 @@ void task_joystick(void *params) {
     }
 }
 
-/** Tarefa: Atualização dos LEDs */
+/** Tarefa: Atualiza o estado dos LEDs com base no estado dos botões A e B */
 void task_leds(void *params) {
     while (1) {
         gpio_put(LED_PIN_GREEN, button_a_pressed);
@@ -134,7 +133,7 @@ void task_leds(void *params) {
     }
 }
 
-/** Tarefa: Impressão dos logs */
+/** Tarefa: Lê as mensagens de log da fila e imprime no console */
 void task_logger(void *params) {
     char msg[128];
     while (1) {
@@ -144,7 +143,7 @@ void task_logger(void *params) {
     }
 }
 
-/** Tarefa: Coleta de dados para envio para servidor */
+/** Tarefa: Lê os sensores (joystick, microfone, temperatura) e atualiza a fila de estado do dispositivo */
 void task_sensor_reader(void *params) {
     DeviceState state;
     MicReader mic;
@@ -166,24 +165,13 @@ void task_sensor_reader(void *params) {
         state.temperature = read_internal_temperature();
 
         xQueueOverwrite(state_queue, &state);
-
-        // Tempo quando inativo: 2 minutos e 15 segundos
-        // Tempo mexendo no JoyStick: 3 minutos e 14 segundos
         vTaskDelay(pdMS_TO_TICKS(1000)); // Tempo de espera entre leituras e envios (Requisitado)
-
-        // Tempo quando inativo: 6 minutos e 40 segundos
-        // Tempo mexendo no JoyStick: 3 minutos e 14 segundos mexendo
-        // vTaskDelay(pdMS_TO_TICKS(2000)); 
-        
-        // Tempo quando inativo: 10 minutos
-        // Tempo mexendo no JoyStick: 2 minutos
-        // vTaskDelay(pdMS_TO_TICKS(3000));
     }
     
     mic_reader_deinit(&mic);
 }
 
-/** Tarefa: Envio de dados ao servidor */
+/** Tarefa: Lê o estado mais recente da fila e envia esses dados para o servidor via Wi-Fi */
 void task_data_sender(void *params) {
     DeviceState state;
     char json_payload[300];
@@ -201,7 +189,7 @@ void task_data_sender(void *params) {
     }
 }
 
-/** Função principal */
+/** Função principal: configura o sistema, cria as filas e tarefas e inicia o agendador do FreeRTOS */
 int main() {
     setup();
     gpio_set_irq_enabled_with_callback(BUTTON_A, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true, &button_callback);
